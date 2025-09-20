@@ -1,1 +1,23 @@
+# Node dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Google clasp auth/config (if someone uses clasp locally)
+.clasp.json
+.clasp-local.json
+
+# Mac / system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# VS Code settings
+.vscode/
+
+# Build artifacts (if any)
+dist/
+build/
 
