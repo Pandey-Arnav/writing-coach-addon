@@ -1,1 +1,53 @@
+<!doctype html>
+<html>
+  <body style="font-family: system-ui, sans-serif; padding: 12px;">
+    <h3 style="margin:0 0 8px 0;">Writing Coach</h3>
+    <p>Select text in your doc or paste it below.</p>
+
+    <button onclick="grabSelection()">Use current selection</button>
+    <textarea id="text" style="width:100%; height:160px; margin-top:8px;"></textarea>
+
+    <label style="display:block; margin-top:12px;">
+      Prompt
+      <input id="prompt" style="width:100%;" value="Improve clarity and tone. Keep meaning.">
+    </label>
+
+    <div style="margin-top:12px;">
+      <button onclick="runCoach()">Get suggestion</button>
+    </div>
+
+    <pre id="out" style="white-space:pre-wrap; margin-top:12px;"></pre>
+
+    <div style="margin-top:12px;">
+      <button onclick="insert()">Insert into doc</button>
+    </div>
+
+    <script>
+      function grabSelection() {
+        google.script.run.withSuccessHandler(function(t){ 
+          document.getElementById('text').value = t || '';
+        }).getSelectedText();
+      }
+
+      function runCoach() {
+        const payload = {
+          text: document.getElementById('text').value,
+          prompt: document.getElementById('prompt').value
+        };
+        document.getElementById('out').textContent = 'Thinking...';
+        google.script.run.withSuccessHandler(function(res){
+          document.getElementById('out').textContent = res.suggestion || '(no suggestion)';
+          window._lastSuggestion = res.suggestion || '';
+        }).withFailureHandler(function(err){
+          document.getElementById('out').textContent = 'Error: ' + err.message;
+        }).analyzeText(payload);
+      }
+
+      function insert() {
+        const s = window._lastSuggestion || document.getElementById('out').textContent;
+        google.script.run.insertSuggestion(s);
+      }
+    </script>
+  </body>
+</html>
 
