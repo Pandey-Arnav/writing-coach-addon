@@ -4,45 +4,57 @@
     <h3 style="margin:0 0 8px 0;">Writing Coach</h3>
     <p>Select text in your doc or paste it below.</p>
 
+    <!-- Button: Pulls selected text from Doc -->
     <button onclick="grabSelection()">Use current selection</button>
     <textarea id="text" style="width:100%; height:160px; margin-top:8px;"></textarea>
 
+    <!-- Prompt input -->
     <label style="display:block; margin-top:12px;">
       Prompt
       <input id="prompt" style="width:100%;" value="Improve clarity and tone. Keep meaning.">
     </label>
 
+    <!-- Run analysis -->
     <div style="margin-top:12px;">
       <button onclick="runCoach()">Get suggestion</button>
     </div>
 
+    <!-- Output area -->
     <pre id="out" style="white-space:pre-wrap; margin-top:12px;"></pre>
 
+    <!-- Insert suggestion into Doc -->
     <div style="margin-top:12px;">
       <button onclick="insert()">Insert into doc</button>
     </div>
 
     <script>
+      // Grab selected text from the Doc and put it in the textarea
       function grabSelection() {
         google.script.run.withSuccessHandler(function(t){ 
           document.getElementById('text').value = t || '';
         }).getSelectedText();
       }
 
+      // Send text + prompt to Apps Script backend
       function runCoach() {
         const payload = {
           text: document.getElementById('text').value,
           prompt: document.getElementById('prompt').value
         };
         document.getElementById('out').textContent = 'Thinking...';
-        google.script.run.withSuccessHandler(function(res){
-          document.getElementById('out').textContent = res.suggestion || '(no suggestion)';
-          window._lastSuggestion = res.suggestion || '';
-        }).withFailureHandler(function(err){
-          document.getElementById('out').textContent = 'Error: ' + err.message;
-        }).analyzeText(payload);
+
+        google.script.run
+          .withSuccessHandler(function(res){
+            document.getElementById('out').textContent = res.suggestion || '(no suggestion)';
+            window._lastSuggestion = res.suggestion || '';
+          })
+          .withFailureHandler(function(err){
+            document.getElementById('out').textContent = 'Error: ' + err.message;
+          })
+          .analyzeText(payload);
       }
 
+      // Insert the last suggestion into the Doc
       function insert() {
         const s = window._lastSuggestion || document.getElementById('out').textContent;
         google.script.run.insertSuggestion(s);
@@ -50,4 +62,3 @@
     </script>
   </body>
 </html>
-
