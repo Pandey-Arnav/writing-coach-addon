@@ -2,18 +2,24 @@
 <html>
   <body style="font-family: system-ui, sans-serif; padding: 16px;">
     <h3>Settings</h3>
-    <p>Store your API key and backend URL (saved in your Google account’s User Properties).</p>
+    <p>Enter your API Key, backend API URL, and optional Google Sheet URL for logging.</p>
 
-    <!-- Input for backend API URL -->
+    <!-- Backend API URL -->
     <label style="display:block; margin-top:8px;">
       API URL
       <input id="apiUrl" style="width:100%;" placeholder="https://your-backend.example.com/coach">
     </label>
 
-    <!-- Input for API Key -->
+    <!-- API Key -->
     <label style="display:block; margin-top:8px;">
       API Key
       <input id="apiKey" style="width:100%;" placeholder="sk-...">
+    </label>
+
+    <!-- Google Sheet URL -->
+    <label style="display:block; margin-top:8px;">
+      Google Sheet URL (for logging)
+      <input id="sheetUrl" style="width:100%;" placeholder="https://docs.google.com/spreadsheets/d/...">
     </label>
 
     <!-- Save button -->
@@ -22,15 +28,15 @@
     </div>
 
     <script>
-      // Save values to Apps Script backend (User Properties)
+      // Send settings to backend
       function save() {
         const apiUrl = document.getElementById('apiUrl').value.trim();
         const apiKey = document.getElementById('apiKey').value.trim();
+        const sheetUrl = document.getElementById('sheetUrl').value.trim();
 
         google.script.run.withSuccessHandler(function(){
-          // Close dialog after saving
           google.script.host.close();
-        }).saveSettings({ apiKey: apiKey, apiUrl: apiUrl });
+        }).saveSettings({ apiKey: apiKey, apiUrl: apiUrl, sheetUrl: sheetUrl });
       }
     </script>
   </body>
