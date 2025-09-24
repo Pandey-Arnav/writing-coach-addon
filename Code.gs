@@ -1,57 +1,65 @@
 /* ========= Writing Coach (Google Docs Add-on) =========
-   Open-source friendly: no secrets in code.
-   Users paste their own API key and backend URL in Settings.
+   This version includes:
+   - Menu + sidebar for text improvement
+   - Settings dialog for API Key and API URL
+   - Logging every request into a Google Sheet
+   -----------------------------------------------------
+   HOW LOGGING WORKS:
+   • You need to create a Google Sheet manually.
+   • Copy its URL and paste it into the SETTINGS dialog.
+   • Each time you run “Get suggestion,” a row is added:
+       Timestamp | Prompt | Input Text | Suggestion
 */
 
-// Store user properties (per-user settings, not global)
+// Keys for storing settings in User Properties
 var USER_PROP = PropertiesService.getUserProperties();
-var KEY_NAME = 'WRITING_COACH_API_KEY';   // Key name for API key
-var API_URL_NAME = 'WRITING_COACH_API_URL'; // Key name for API URL
+var KEY_NAME = 'WRITING_COACH_API_KEY';      // User’s API key
+var API_URL_NAME = 'WRITING_COACH_API_URL'; // Backend endpoint
+var SHEET_URL_NAME = 'WRITING_COACH_SHEET'; // Google Sheet URL
 
-// Run on install and also on open
+// Run when installed
 function onInstall(e) {
   onOpen(e);
 }
 
-// Create the custom "Writing Coach" menu in Google Docs
+// Add menu to Google Docs
 function onOpen(e) {
   DocumentApp.getUi()
     .createMenu('Writing Coach')
     .addItem('Open Sidebar', 'showSidebar')
-    .addItem('Set API Key / API URL', 'showSettings')
+    .addItem('Set Settings', 'showSettings')
     .addToUi();
 }
 
-// Show the sidebar (loads Sidebar.html)
+// Open sidebar UI (Sidebar.html)
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar')
     .setTitle('Writing Coach');
   DocumentApp.getUi().showSidebar(html);
 }
 
-// Show the settings dialog (loads Settings.html)
+// Open settings dialog (Settings.html)
 function showSettings() {
   var html = HtmlService.createHtmlOutputFromFile('Settings')
     .setWidth(420)
-    .setHeight(320);
+    .setHeight(360);
   DocumentApp.getUi().showModalDialog(html, 'Writing Coach Settings');
 }
 
-// Save API key and URL into User Properties (private to each user)
+// Save settings from the dialog into User Properties
 function saveSettings(input) {
   var apiKey = input.apiKey;
   var apiUrl = input.apiUrl;
+  var sheetUrl = input.sheetUrl;
 
-  if (typeof apiKey === 'string') {
-    USER_PROP.setProperty(KEY_NAME, apiKey.trim());
-  }
-  if (typeof apiUrl === 'string') {
-    USER_PROP.setProperty(API_URL_NAME, apiUrl.trim());
-  }
+  if (typeof apiKey === 'string') USER_PROP.setProperty(KEY_NAME, apiKey.trim());
+  if (typeof apiUrl === 'string') USER_PROP.setProperty(API_URL_NAME, apiUrl.trim());
+  if (typeof sheetUrl === 'string') USER_PROP.setProperty(SHEET_URL_NAME, sheetUrl.trim());
+
   return { ok: true };
 }
 
-// Get currently selected text in the Google Doc
+// Get the currently selected text in the Doc
 function getSelectedText() {
   var doc = DocumentApp.getActiveDocument();
   var selection = doc.getSelection();
@@ -62,10 +70,10 @@ function getSelectedText() {
   for (var i = 0; i < elements.length; i++) {
     var el = elements[i];
     if (el.isPartial()) {
-      // If user only selected part of a paragraph
+      // If part of a paragraph is selected
       out.push(el.getElement().asText().getText().substring(el.getStartOffset(), el.getEndOffsetInclusive() + 1));
     } else {
-      // If whole paragraph/element is selected
+      // If whole paragraph is selected
       var elem = el.getElement();
       if (elem.editAsText) out.push(elem.asText().getText());
     }
@@ -73,15 +81,17 @@ function getSelectedText() {
   return out.join('\n').trim();
 }
 
-// Call external API (backend or OpenAI/Gemini) with selected text + prompt
+// Analyze text by calling backend API
 function analyzeText(input) {
   var apiKey = USER_PROP.getProperty(KEY_NAME) || '';
   var apiUrl = USER_PROP.getProperty(API_URL_NAME) || '';
+  var sheetUrl = USER_PROP.getProperty(SHEET_URL_NAME) || '';
+
   if (!apiKey || !apiUrl) {
-    throw new Error('Missing API key or API URL. Open "Set API Key / API URL" first.');
+    throw new Error('Missing API key or API URL. Set them in Settings.');
   }
 
-  // Build request body
+  // Build request payload
   var payload = {
     prompt: input.prompt || 'Improve clarity and tone. Keep meaning.',
     text: input.text || '',
@@ -89,7 +99,7 @@ function analyzeText(input) {
     style: input.style || 'Concise'
   };
 
-  // Send request
+  // Call external API
   var res = UrlFetchApp.fetch(apiUrl, {
     method: 'post',
     muteHttpExceptions: true,
@@ -98,18 +108,34 @@ function analyzeText(input) {
     payload: JSON.stringify(payload)
   });
 
-  // Handle errors
   var status = res.getResponseCode();
   if (status < 200 || status >= 300) {
     throw new Error('Backend error ' + status + ': ' + res.getContentText());
   }
 
-  // Parse response
   var data = JSON.parse(res.getContentText());
-  return { suggestion: data.suggestion || '' };
+  var suggestion = data.suggestion || '';
+
+  // Log into Google Sheet (if configured)
+  if (sheetUrl) {
+    try {
+      var sheet = SpreadsheetApp.openByUrl(sheetUrl).getActiveSheet();
+      sheet.appendRow([
+        new Date(),
+        payload.prompt,
+        payload.text,
+        suggestion
+      ]);
+    } catch (err) {
+      // Fail silently if sheet logging fails
+      Logger.log("Logging failed: " + err.message);
+    }
+  }
+
+  return { suggestion: suggestion };
 }
 
-// Insert suggestion into the Doc at cursor or end
+// Insert suggestion back into the Doc
 function insertSuggestion(text) {
   if (!text) return { ok: true };
   var doc = DocumentApp.getActiveDocument();
